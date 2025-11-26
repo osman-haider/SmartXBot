@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Twitter Auto Replier",
+  "description": "Automatically replies to tweets based on keywords from backend",
+  "version": "1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.x.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
