@@ -58,10 +58,10 @@
     return true;
   }
 
-  async function scrollToLoad(min = 50) {
+  async function scrollToLoad(min = 3) {
     const seen = new Set();
     let tries = 0;
-    while (seen.size < min && tries < 10) {
+    while (seen.size < min && tries < 2) {
       document.querySelectorAll("article").forEach((a) => seen.add(a.innerText));
       window.scrollBy(0, 800);
       await delay(2000 + Math.random() * 1000);

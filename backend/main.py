@@ -13,6 +13,8 @@ app = FastAPI()
 TWEET_ID_FILE = "processed_ids.txt"
 # File to store user prompts
 PROMPTS_FILE = "user_prompts.json"
+# File to store user keywords
+KEYWORDS_FILE = "user_keywords.json"
 
 # Load processed tweet IDs from file
 def load_processed_ids() -> Set[str]:
@@ -45,20 +47,71 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def load_keywords(file_path):
-    print(f"[MAIN] 📂 Loading keywords from {file_path}")
+def load_keywords_from_file(file_path):
+    """Load keywords from text file (fallback)"""
+    print(f"[MAIN] 📂 Loading keywords from file {file_path}")
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             # Remove trailing newline characters and blank lines
             keywords = [line.strip() for line in file if line.strip()]
-        print(f"[MAIN] ✅ Loaded {len(keywords)} keywords")
+        print(f"[MAIN] ✅ Loaded {len(keywords)} keywords from file")
         return keywords
     except Exception as e:
-        print(f"[MAIN] ❌ Error loading keywords: {e}")
+        print(f"[MAIN] ❌ Error loading keywords from file: {e}")
         return []
 
-keyword_file = 'keywords.txt'
-keywords = load_keywords(keyword_file)
+# Load user keywords from JSON file
+def load_user_keywords() -> dict:
+    print(f"[MAIN] 📂 Loading user keywords from {KEYWORDS_FILE}")
+    if not os.path.exists(KEYWORDS_FILE):
+        print(f"[MAIN] ⚠️  Keywords file {KEYWORDS_FILE} does not exist. Loading from keywords.txt as fallback.")
+        # Fallback to keywords.txt
+        keyword_file = 'keywords.txt'
+        keywords = load_keywords_from_file(keyword_file)
+        return {
+            "keywords": keywords,
+            "since_date": None,
+            "until_date": None
+        }
+    try:
+        with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            keywords = data.get("keywords", [])
+            print(f"[MAIN] ✅ Loaded {len(keywords)} user keywords")
+            print(f"[MAIN] 📅 Since date: {data.get('since_date', 'Not set')}")
+            print(f"[MAIN] 📅 Until date: {data.get('until_date', 'Not set')}")
+            return data
+    except Exception as e:
+        print(f"[MAIN] ❌ Error loading keywords: {e}. Using fallback.")
+        keyword_file = 'keywords.txt'
+        keywords = load_keywords_from_file(keyword_file)
+        return {
+            "keywords": keywords,
+            "since_date": None,
+            "until_date": None
+        }
+
+# Save user keywords to JSON file
+def save_user_keywords(keywords: list, since_date: str = None, until_date: str = None):
+    print(f"[MAIN] 💾 Saving user keywords to {KEYWORDS_FILE}")
+    print(f"[MAIN] 📝 Keywords count: {len(keywords)}")
+    print(f"[MAIN] 📅 Since date: {since_date or 'Not set'}")
+    print(f"[MAIN] 📅 Until date: {until_date or 'Not set'}")
+    data = {
+        "keywords": keywords,
+        "since_date": since_date,
+        "until_date": until_date
+    }
+    try:
+        with open(KEYWORDS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        print(f"[MAIN] ✅ Keywords saved successfully")
+    except Exception as e:
+        print(f"[MAIN] ❌ Error saving keywords: {e}")
+
+# Initialize keywords
+print("[MAIN] 🔄 Initializing keywords...")
+user_keywords_data = load_user_keywords()
 
 # Load user prompts from file
 def load_user_prompts() -> dict:
@@ -97,16 +150,82 @@ def save_user_prompts(hiring_prompt: str, normal_prompt: str):
 print("[MAIN] 🔄 Initializing user prompts...")
 user_prompts = load_user_prompts()
 
-@app.get("/keywords")
-def get_keywords():
-    print(f"[MAIN] 📡 GET /keywords endpoint called")
-    print(f"[MAIN] 📤 Returning {len(keywords)} keywords")
-    return {"keywords": keywords}
-
 # Prompts model
 class PromptsRequest(BaseModel):
     hiring_prompt: str
     normal_prompt: str
+
+# Keywords config model
+class KeywordsConfigRequest(BaseModel):
+    keywords: List[str]
+    since_date: Optional[str] = None
+    until_date: Optional[str] = None
+
+@app.get("/keywords")
+def get_keywords():
+    """Get keywords with date filters applied"""
+    print(f"[MAIN] 📡 GET /keywords endpoint called")
+    
+    # Load current keywords (in case they were updated)
+    current_keywords_data = load_user_keywords()
+    keywords = current_keywords_data.get("keywords", [])
+    since_date = current_keywords_data.get("since_date")
+    until_date = current_keywords_data.get("until_date")
+    
+    # Process keywords: add date filters to keywords that don't have them
+    processed_keywords = []
+    for keyword in keywords:
+        # Check if keyword already has date filters
+        has_since = "since:" in keyword.lower()
+        has_until = "until:" in keyword.lower()
+        
+        processed_keyword = keyword
+        
+        # Add global since_date if keyword doesn't have one and global is set
+        if not has_since and since_date:
+            processed_keyword += f" since:{since_date}"
+        
+        # Add global until_date if keyword doesn't have one and global is set
+        if not has_until and until_date:
+            processed_keyword += f" until:{until_date}"
+        
+        processed_keywords.append(processed_keyword)
+    
+    print(f"[MAIN] 📤 Returning {len(processed_keywords)} keywords (with date filters applied)")
+    print(f"[MAIN] 📋 Sample keywords: {processed_keywords[:3] if len(processed_keywords) > 0 else 'None'}")
+    return {"keywords": processed_keywords}
+
+
+@app.post("/keywords-config")
+async def save_keywords_config(data: KeywordsConfigRequest):
+    """Save user-provided keywords and date filters"""
+    print(f"[MAIN] 📡 POST /keywords-config endpoint called")
+    keywords = data.keywords
+    since_date = data.since_date
+    until_date = data.until_date
+    
+    print(f"[MAIN] 📥 Received {len(keywords)} keywords")
+    print(f"[MAIN] 📥 Since date: {since_date or 'Not provided'}")
+    print(f"[MAIN] 📥 Until date: {until_date or 'Not provided'}")
+    
+    save_user_keywords(keywords, since_date, until_date)
+    
+    # Update global keywords data
+    user_keywords_data["keywords"] = keywords
+    user_keywords_data["since_date"] = since_date
+    user_keywords_data["until_date"] = until_date
+    
+    print(f"[MAIN] ✅ Keywords config saved successfully")
+    print(f"[MAIN] 📤 Returning success response")
+    return {"message": "Keywords configuration saved successfully"}
+
+@app.get("/keywords-config")
+def get_keywords_config():
+    """Get raw keywords configuration (without date filters applied)"""
+    print(f"[MAIN] 📡 GET /keywords-config endpoint called")
+    current_keywords_data = load_user_keywords()
+    print(f"[MAIN] 📤 Returning keywords config")
+    return current_keywords_data
 
 @app.post("/prompts")
 async def save_prompts(data: PromptsRequest):

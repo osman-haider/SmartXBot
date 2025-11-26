@@ -88,6 +88,50 @@
         color: #999;
       }
       
+      #keywordsTextarea {
+        min-height: 120px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+      
+      .date-inputs {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      
+      .date-group {
+        flex: 1;
+      }
+      
+      .date-group label {
+        font-size: 11px;
+        margin-bottom: 4px;
+        color: #666;
+      }
+      
+      input[type="date"] {
+        width: 100%;
+        padding: 8px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+      
+      input[type="date"]:focus {
+        outline: none;
+        border-color: #1976d2;
+      }
+      
+      .info-text {
+        font-size: 11px;
+        color: #666;
+        margin-top: 4px;
+        font-style: italic;
+      }
+      
       .button-group {
         display: flex;
         gap: 10px;
@@ -194,8 +238,38 @@
           ></textarea>
         </div>
         
+        <div class="divider"></div>
+        
+        <div class="form-group">
+          <label>
+            Search Keywords
+            <span class="label-badge" style="background: #fff3cd; color: #856404;">KEYWORDS</span>
+          </label>
+          <textarea 
+            id="keywordsTextarea" 
+            placeholder="Enter keywords (one per line):&#10;machine learning engineer&#10;AI chatbot developer&#10;python developer&#10;&#10;You can also add date filters:&#10;keyword until:2025-11-27 since:2025-11-26"
+            required
+          ></textarea>
+          <div class="info-text">💡 Tip: Add date filters like "keyword until:2025-11-27 since:2025-11-26"</div>
+        </div>
+        
+        <div class="form-group">
+          <label>Date Range (Optional - applies to all keywords if set)</label>
+          <div class="date-inputs">
+            <div class="date-group">
+              <label>Since Date</label>
+              <input type="date" id="sinceDate" />
+            </div>
+            <div class="date-group">
+              <label>Until Date</label>
+              <input type="date" id="untilDate" />
+            </div>
+          </div>
+          <div class="info-text">💡 These dates will be appended to keywords that don't have date filters</div>
+        </div>
+        
         <div class="button-group">
-          <button type="submit" id="save">Save Prompts</button>
+          <button type="submit" id="save">Save All</button>
           <button type="button" id="start" disabled>Start Bot</button>
         </div>
         
